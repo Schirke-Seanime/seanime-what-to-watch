@@ -2,11 +2,10 @@
 /// <reference path="./app.d.ts" />
 /// <reference path="./core.d.ts" />
 
-// What to Watch: tell it how much time you have and what you're in the mood
-// for, and it picks three shows from your list: one you can finish, one to
-// keep watching and one to start. Everything comes from your AniList list in
-// one request; the picks are worked out on the page, so changing the time or
-// mood is instant.
+// What to Watch: pick a mood and it suggests shows from your list, in
+// sections: almost done, keep watching, start something new and movie
+// night. Everything comes from your AniList list in one request; the picks
+// are worked out on the page, so changing the mood is instant.
 
 function init() {
   // Seanime runs the UI handler in its own runtime, from its source text, so
@@ -228,12 +227,8 @@ function createWhatToWatch() {
 
   function cleanPrefs(p: any): any {
     p = p || {}
-    const times = [30, 60, 120, 240, 720]
     const moods = ["any", "light", "action", "feels", "mind", "dark"]
-    return {
-      time: times.indexOf(Number(p.time)) >= 0 ? Number(p.time) : 60,
-      mood: moods.indexOf(p.mood) >= 0 ? p.mood : "any",
-    }
+    return { mood: moods.indexOf(p.mood) >= 0 ? p.mood : "any" }
   }
 
   function readPrefs(): any {
@@ -322,7 +317,7 @@ function createWhatToWatch() {
   .controls .row + .row { margin-top: 10px; }
 
   /* Picks */
-  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
   .pick { background: var(--paper2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; cursor: pointer;
     display: flex; flex-direction: column; }
   .pick:hover { border-color: var(--brand); }
@@ -332,11 +327,6 @@ function createWhatToWatch() {
   .pick .body { display: flex; gap: 14px; padding: 0 14px 14px; margin-top: -54px; position: relative; z-index: 1; flex: 1; }
   .pick img { width: 96px; height: 138px; object-fit: cover; border-radius: 9px; flex: none; box-shadow: 0 6px 18px rgba(0,0,0,.5); background: #222; }
   .pick .info { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding-top: 58px; flex: 1; }
-  .role { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-    padding: 2px 8px; border-radius: 99px; align-self: flex-start; }
-  .role.finish { background: rgba(63,191,106,.18); color: var(--green); }
-  .role.keep { background: rgba(230,180,34,.16); color: var(--yellow); }
-  .role.new { background: rgba(91,141,239,.18); color: var(--blue); }
   .t { font-weight: 650; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .pick .t { font-size: 16px; }
   .plan { font-size: 13px; }
@@ -348,14 +338,9 @@ function createWhatToWatch() {
   .score { font-size: 12px; font-weight: 650; }
   .open { margin-left: auto; padding: 4px 12px; font-size: 13px; border-radius: 8px; background: var(--brand); color: var(--on-brand); border: 0; font-weight: 600; }
   .open:hover { background: var(--brand); filter: brightness(1.1); }
-  .again { margin-top: 14px; }
+  .sec-head { margin-bottom: 12px; }
+  .sec-head h2 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 99px; margin-right: 8px; }
 
-  /* More ideas */
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-  .card { display: flex; gap: 10px; padding: 8px; background: var(--paper2); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
-  .card:hover { border-color: var(--brand); }
-  .card img { width: 52px; height: 74px; object-fit: cover; border-radius: 7px; flex: none; background: #222; }
-  .card .info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
   #tip { position: absolute; display: none; z-index: 50; max-width: 320px; pointer-events: none;
     background: #1f1f27; border: 1px solid #34343f; border-radius: 10px; padding: 10px 12px; font-size: 12px;
@@ -378,11 +363,10 @@ function createWhatToWatch() {
 <div id="tip"></div>
 <script>
 var DATA = null;
-var PREFS = { time: 60, mood: "any" };
-// Shows already offered with this time and mood; "Another 3" skips them.
-var SHOWN = {};
-var PICKS = null;
-var TIMES = [[30, "30 min"], [60, "1 hour"], [120, "2 hours"], [240, "Evening"], [720, "Weekend"]];
+var PREFS = { mood: "any" };
+// Where each section's "Other picks" has got to.
+var OFFSET = {};
+var PER_SECTION = 4;
 var MOODS = [["any", "Anything"], ["light", "Light & fun"], ["action", "Action"], ["feels", "Feels"], ["mind", "Mind-bending"], ["dark", "Dark"]];
 // What each mood looks for in genres and tags, and what goes against it.
 var MOOD_RULES = {
@@ -392,7 +376,12 @@ var MOOD_RULES = {
   mind: { g: ["Mystery", "Psychological", "Thriller", "Sci-Fi"], t: ["Time Manipulation", "Philosophy", "Detective", "Conspiracy", "Survival"], avoid: ["Ecchi", "Iyashikei"] },
   dark: { g: ["Horror", "Thriller", "Psychological"], t: ["Gore", "Tragedy", "Survival", "Death Game"], avoid: ["Comedy", "Slice of Life", "Iyashikei"] }
 };
-var ROLE = { finish: "Finish it", keep: "Keep watching", new: "Start something new" };
+var SECTIONS = [
+  ["finish", "Almost done", "A few episodes left: finish them off.", "var(--green)"],
+  ["keep", "Keep watching", "Pick up where you left off.", "var(--yellow)"],
+  ["new", "Start something new", "From your Planning list.", "var(--blue)"],
+  ["movie", "Movie night", "Films from your Planning list.", "#c77dff"]
+];
 var FORMAT_NAME = { TV: "TV", TV_SHORT: "TV Short", ONA: "ONA", MOVIE: "Movie", OVA: "OVA", SPECIAL: "Special", MUSIC: "Music" };
 
 function esc(s) {
@@ -408,7 +397,7 @@ function hexToRgb(h) {
   if (!h || h.charAt(0) !== "#" || h.length !== 7) return null;
   return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)];
 }
-// Banner and accent colour of the first pick.
+// Banner and accent colour of the first pick on the page.
 function applyTheme(top) {
   var hero = document.getElementById("hero");
   var img = top && (top.banner || top.cover);
@@ -425,10 +414,13 @@ function applyTheme(top) {
   css.setProperty("--brand", brand);
   css.setProperty("--on-brand", onBrand);
 }
+// "45 min", "1 h 30 min"; longer stretches rounded to the hour. No-break
+// spaces keep a number and its unit on one line.
 function minutesText(min) {
-  if (min < 60) return min + " min";
+  if (min < 60) return min + " min";
+  if (min >= 180) return "~" + Math.round(min / 60) + " h";
   var h = Math.floor(min / 60), m = min % 60;
-  return h + " h" + (m ? " " + m + " min" : "");
+  return h + " h" + (m ? " " + m + " min" : "");
 }
 function ago(sec) {
   if (!sec) return "";
@@ -451,58 +443,36 @@ function moodFit(i, mood) {
   i.tags.forEach(function (t) { if (r.t.indexOf(t) >= 0) hits += 0.5; if (r.avoid.indexOf(t) >= 0) against += 1; });
   return Math.max(0, Math.min(1, hits / 2) - 0.5 * against);
 }
-// What you'd watch in the time you have: which episodes, how long, and
-// whether that finishes the show. Null if not even one episode fits (a
-// little over is fine).
-function planFor(i, time) {
-  var left = i.aired - i.progress;
-  var n = Math.min(left, Math.floor(time / i.duration));
-  if (n < 1) { if (i.duration > time * 1.25) return null; n = 1; }
-  var minutes = n * i.duration;
-  var finishes = !i.airing && i.episodes > 0 && i.progress + n >= i.episodes;
-  var catchesUp = i.airing && i.progress + n >= i.aired;
-  return { from: i.progress + 1, to: i.progress + n, n: n, minutes: minutes, finishes: finishes, catchesUp: catchesUp, over: minutes > time };
+function leftOf(i) { return i.aired - i.progress; }
+// Almost done: a finished show with at most 3 episodes left, or up to 6
+// if that's the last quarter of it.
+function sectionOf(i) {
+  if (i.listStatus === "PLANNING") return i.format === "MOVIE" ? "movie" : "new";
+  var left = leftOf(i);
+  if (!i.airing && (left <= 3 || (i.episodes && left <= 6 && left / i.episodes <= 0.25))) return "finish";
+  return "keep";
 }
-function roleOf(i, plan) {
-  if (i.listStatus === "PLANNING") return "new";
-  return plan.finishes ? "finish" : "keep";
-}
-// Score 0-1: mood 30%, AniList score 25%, your taste 25%, how well it fills
-// the time 12%, how recently you watched it 8% (picking up where you left
-// off is easier while you still remember it).
-function rate(i, plan, mood) {
-  var m = moodFit(i, mood);
+// Score 0-1: mood 35%, AniList score 30%, your taste 30%, and 5% for having
+// watched it recently (easier to pick up while you still remember it).
+// Almost done also favours the shows closest to the end.
+function rate(i, section, mood) {
   var q = i.score ? Math.max(0, Math.min(1, (i.score - 60) / 25)) : 0.35;
-  var fill = plan.finishes || plan.catchesUp ? 1 : Math.min(1, plan.minutes / (PREFS.time * 0.8));
-  if (plan.over) fill = 0.6;
   var days = i.updatedAt ? (Date.now() / 1000 - i.updatedAt) / 86400 : 9999;
-  var fresh = i.listStatus === "PLANNING" ? 0.5 : days < 14 ? 1 : days < 90 ? 0.6 : 0.3;
-  return 0.3 * m + 0.25 * q + 0.25 * (i.match / 100) + 0.12 * fill + 0.08 * fresh;
+  var fresh = section === "new" || section === "movie" ? 0.5 : days < 14 ? 1 : days < 90 ? 0.6 : 0.3;
+  var v = 0.35 * moodFit(i, mood) + 0.3 * q + 0.3 * (i.match / 100) + 0.05 * fresh;
+  if (section === "finish") v += 0.1 * (1 - Math.min(leftOf(i), 6) / 7);
+  return v;
 }
-// Every show that fits the time and mood, best first.
-function ranked() {
-  var out = [];
+// Every show that fits the mood, by section, best first.
+function bySection() {
+  var out = { finish: [], keep: [], new: [], movie: [] };
   (DATA.items || []).forEach(function (i) {
     if (PREFS.mood !== "any" && moodFit(i, PREFS.mood) <= 0) return;
-    var plan = planFor(i, PREFS.time);
-    if (!plan) return;
-    out.push({ i: i, plan: plan, role: roleOf(i, plan), value: rate(i, plan, PREFS.mood) });
+    var s = sectionOf(i);
+    out[s].push({ i: i, value: rate(i, s, PREFS.mood) });
   });
-  out.sort(function (a, b) { return b.value - a.value; });
+  for (var s in out) out[s].sort(function (a, b) { return b.value - a.value; });
   return out;
-}
-// The best not yet offered for each role; a role with nothing left gives
-// its place to the next best overall.
-function choose(list) {
-  var fresh = list.filter(function (x) { return !SHOWN[x.i.id]; });
-  if (fresh.length < 3) { SHOWN = {}; fresh = list; }
-  var picks = [];
-  ["finish", "keep", "new"].forEach(function (r) {
-    for (var k = 0; k < fresh.length; k++) if (fresh[k].role === r) { picks.push(fresh[k]); return; }
-  });
-  for (var k = 0; k < fresh.length && picks.length < 3; k++) if (picks.indexOf(fresh[k]) < 0) picks.push(fresh[k]);
-  picks.forEach(function (p) { SHOWN[p.i.id] = true; });
-  return picks;
 }
 
 // ---------- match tooltip ----------
@@ -534,48 +504,42 @@ document.addEventListener("mouseover", function (ev) {
 document.addEventListener("scroll", hideTip, true);
 
 // ---------- rendering ----------
-function planText(x) {
-  var i = x.i, p = x.plan;
-  var eps = p.n === 1 ? "Ep " + p.from : "Ep " + p.from + "–" + p.to;
-  if (i.format === "MOVIE" && i.episodes === 1) eps = "The movie";
-  var of = i.episodes > 1 ? ' <span class="muted">of ' + i.episodes + '</span>' : "";
-  var tail = p.finishes ? (i.listStatus === "PLANNING" ? " · the whole show" : " · finishes it")
-    : p.catchesUp ? " · catches up" : "";
-  return '<b>' + eps + '</b>' + of + ' · ' + minutesText(p.minutes) + (p.over ? " (a bit over)" : "") + tail;
+// What's ahead: what's left to watch and how long it takes.
+function planText(i, section) {
+  var left = leftOf(i), d = i.duration;
+  if (section === "finish") return left === 1 ? "<b>Last episode</b> · " + minutesText(d) : "<b>" + left + " episodes left</b> · " + minutesText(left * d);
+  if (section === "keep") return "<b>Next: ep " + (i.progress + 1) + "</b>" + (i.episodes ? ' <span class="muted">of ' + i.episodes + "</span>" : "") +
+    " · " + (i.airing ? left + " out now" : left + " left, " + minutesText(left * d));
+  if (section === "movie") return "<b>Movie</b> · " + minutesText(d);
+  var n = i.airing ? i.aired : i.episodes;
+  return "<b>" + esc(FORMAT_NAME[i.format] || i.format) + "</b>" + (n ? " · " + n + (n === 1 ? " ep" : " eps") + (i.airing ? " out" : "") + ", " + minutesText(n * d) : "");
 }
-function why(x) {
-  var i = x.i, p = x.plan;
-  if (x.role === "finish") return i.aired - i.progress === 1 ? "Just one episode left." : "Only " + (i.aired - i.progress) + " episodes left.";
-  if (x.role === "keep") return i.updatedAt ? "You stopped at ep " + i.progress + ", " + ago(i.updatedAt) + "." : "You stopped at ep " + i.progress + ".";
-  return i.airing ? "On your Planning list, airing now." : "On your Planning list.";
+function whyText(i, section) {
+  if (section === "finish" || section === "keep") return "You stopped at ep " + i.progress + (i.updatedAt ? ", " + ago(i.updatedAt) : "") + ".";
+  return i.airing ? "Airing now." : "";
 }
-function pills(i) {
-  return '<span class="score">' + (i.score ? "★ " + (i.score / 10).toFixed(1) : "★ —") + '</span>' +
-    '<span class="pill match" data-tip="match" data-id="' + i.id + '">' + i.match + '% match</span>' +
-    i.genres.slice(0, 2).map(function (g) { return '<span class="pill">' + esc(g) + '</span>'; }).join("");
-}
-function pickCard(x) {
+function pickCard(x, section) {
   var i = x.i;
   var art = i.banner || i.cover;
+  var why = whyText(i, section);
   return '<div class="pick" data-open="' + i.id + '"><div class="art' + (i.banner ? "" : " cover") + '" style="background-image:url(&quot;' + esc(art) + '&quot;)"></div>' +
-    '<div class="body"><img src="' + esc(i.cover) + '"><div class="info">' +
-    '<span class="role ' + x.role + '">' + ROLE[x.role] + '</span>' +
+    '<div class="body"><img src="' + esc(i.cover) + '" loading="lazy"><div class="info">' +
     '<div class="t">' + esc(i.title) + '</div>' +
-    '<div class="plan">' + planText(x) + '</div>' +
-    '<div class="meta">' + esc(why(x)) + '</div>' +
-    '<div class="pills">' + pills(i) + '<button class="open" data-open="' + i.id + '">Open</button></div>' +
+    '<div class="plan">' + planText(i, section) + '</div>' +
+    (why ? '<div class="meta">' + esc(why) + '</div>' : '') +
+    '<div class="pills"><span class="score">' + (i.score ? "★ " + (i.score / 10).toFixed(1) : "★ —") + '</span>' +
+    '<span class="pill match" data-tip="match" data-id="' + i.id + '">' + i.match + '% match</span>' +
+    i.genres.slice(0, 2).map(function (g) { return '<span class="pill">' + esc(g) + '</span>'; }).join("") +
+    '<button class="open" data-open="' + i.id + '">Open</button></div>' +
     '</div></div></div>';
 }
-function smallCard(x) {
-  var i = x.i;
-  return '<div class="card" data-open="' + i.id + '"><img src="' + esc(i.cover) + '" loading="lazy"><div class="info">' +
-    '<div class="t">' + esc(i.title) + '</div><div class="meta">' + ROLE[x.role] + ' · ' + planText(x) + '</div>' +
-    '<div class="pills">' + pills(i) + '</div></div></div>';
-}
-function seg(act, cur, opts) {
-  return '<span class="seg">' + opts.map(function (o) {
-    return '<button data-act="' + act + '" data-v="' + o[0] + '" class="' + (String(cur) === String(o[0]) ? "on" : "") + '">' + o[1] + '</button>';
-  }).join("") + '</span>';
+// The shows a section shows now: PER_SECTION from where "Other picks" got to.
+function shownOf(list, key) {
+  if (list.length <= PER_SECTION) return list;
+  var at = (OFFSET[key] || 0) % list.length;
+  var out = list.slice(at, at + PER_SECTION);
+  if (out.length < PER_SECTION) out = out.concat(list.slice(0, PER_SECTION - out.length));
+  return out;
 }
 function render() {
   var root = document.getElementById("root");
@@ -587,31 +551,27 @@ function render() {
     (DATA.loading ? (sub ? " · " : "") + "loading…" : "") +
     (DATA.warning ? ' · <span class="error">' + esc(DATA.warning) + '</span>' : '') + '</div></div><span class="spacer"></span>' +
     '<button data-act="refresh" title="Fetch your list again from AniList">Refresh</button></div>';
-  var controls = '<section class="controls"><div class="row"><span class="label">Time I have</span>' + seg("time", PREFS.time, TIMES) + '</div>' +
-    '<div class="row"><span class="label">In the mood for</span>' + seg("mood", PREFS.mood, MOODS) + '</div></section>';
+  var controls = '<section class="controls"><div class="row"><span class="label">In the mood for</span><span class="seg">' + MOODS.map(function (o) {
+    return '<button data-act="mood" data-v="' + o[0] + '" class="' + (PREFS.mood === o[0] ? "on" : "") + '">' + o[1] + '</button>';
+  }).join("") + '</span></div></section>';
   if (DATA.error) { applyTheme(null); root.innerHTML = head + '<section><div class="empty error">' + esc(DATA.error) + '</div></section>'; return; }
   if (!DATA.items) { applyTheme(null); root.innerHTML = head + controls + '<section><div class="empty">Loading your list…</div></section>'; return; }
 
-  var list = ranked();
-  if (!PICKS) PICKS = choose(list);
-  applyTheme(PICKS[0] ? PICKS[0].i : null);
-  var picked = {};
-  PICKS.forEach(function (p) { picked[p.i.id] = true; });
-  var more = list.filter(function (x) { return !picked[x.i.id]; }).slice(0, 9);
-  var body = !PICKS.length
-    ? '<section><div class="empty">Nothing in your list fits ' + (PREFS.mood === "any" ? "this time" : "this time and mood") + '. Try more time or another mood.</div></section>'
-    : '<section><div class="picks">' + PICKS.map(pickCard).join("") + '</div>' +
-      '<div class="row again"><button data-act="again">Another 3</button><span class="note">' + list.length + ' shows in your list fit.</span></div></section>' +
-      (more.length ? '<section><div class="row" style="margin-bottom:12px"><h2>More ideas</h2></div><div class="cards">' + more.map(smallCard).join("") + '</div></section>' : '');
+  var lists = bySection();
+  var top = null;
+  var body = SECTIONS.map(function (s) {
+    var list = lists[s[0]];
+    if (!list.length) return "";
+    var shown = shownOf(list, s[0]);
+    if (!top) top = shown[0].i;
+    return '<section><div class="row sec-head"><h2><span class="dot" style="background:' + s[3] + '"></span>' + s[1] +
+      ' <span class="muted">· ' + list.length + '</span></h2><span class="note">' + s[2] + '</span><span class="spacer"></span>' +
+      (list.length > PER_SECTION ? '<button data-act="other" data-v="' + s[0] + '">Other picks</button>' : '') + '</div>' +
+      '<div class="picks">' + shown.map(function (x) { return pickCard(x, s[0]); }).join("") + '</div></section>';
+  }).join("");
+  applyTheme(top);
+  if (!body) body = '<section><div class="empty">Nothing in your list fits this mood. Try another one.</div></section>';
   root.innerHTML = head + controls + body;
-}
-
-function setPref(p) {
-  for (var k in p) PREFS[k] = p[k];
-  SHOWN = {};
-  PICKS = null;
-  send("set-prefs", p);
-  render();
 }
 
 document.addEventListener("click", function (ev) {
@@ -620,19 +580,14 @@ document.addEventListener("click", function (ev) {
   var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
   var open = el.getAttribute("data-open");
   if (open) { send("open", { id: Number(open) }); return; }
-  if (act === "time") setPref({ time: Number(v) });
-  else if (act === "mood") setPref({ mood: v });
-  else if (act === "again") { PICKS = choose(ranked()); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  if (act === "mood") { PREFS.mood = v; OFFSET = {}; send("set-prefs", { mood: v }); render(); }
+  else if (act === "other") { OFFSET[v] = (OFFSET[v] || 0) + PER_SECTION; render(); }
   else if (act === "refresh") { DATA.loading = true; render(); send("refresh"); }
 });
 
 window.webview.on("data", function (d) {
-  var first = !DATA || !DATA.items;
   DATA = d;
   if (d && d.prefs) PREFS = d.prefs;
-  // Keep the picks on screen when the list refreshes, unless they're gone.
-  if (first || (PICKS && PICKS.some(function (p) { return !find(p.i.id); }))) { PICKS = null; SHOWN = {}; }
-  else if (PICKS) PICKS = PICKS.map(function (p) { var i = find(p.i.id); var plan = planFor(i, PREFS.time); return plan ? { i: i, plan: plan, role: roleOf(i, plan), value: p.value } : null; }).filter(Boolean);
   render();
 });
 render();

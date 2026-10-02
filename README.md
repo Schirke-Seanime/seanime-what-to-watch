@@ -2,13 +2,13 @@
 
 <h1 align="center">What to Watch for Seanime</h1>
 
-<p align="center">Can't pick what to watch tonight? A page in the <a href="https://github.com/5rahim/seanime">Seanime</a> sidebar that picks for you.</p>
+<p align="center">Can't pick what to watch next? A page in the <a href="https://github.com/5rahim/seanime">Seanime</a> sidebar that picks for you.</p>
 
 ---
 
-- **Say how much time you have** (30 minutes to a weekend) **and your mood** (light & fun, action, feels, mind-bending, dark).
-- **Three picks from your list**: one you can **finish** in that time, one to **keep watching** and one from your Planning list to **start**, each with the episodes to watch and how long they take.
-- **Another 3** for different picks, and more ideas below. Picks favour shows rated well on AniList and close to your taste.
+- **Pick a mood**: anything, light & fun, action, feels, mind-bending or dark.
+- **Shows from your list in sections**: **Almost done** (a few episodes left), **Keep watching**, **Start something new** from your Planning list and **Movie night**, each with what's left to watch and how long it takes.
+- **Other picks** in each section for more. Picks favour shows rated well on AniList and close to your taste.
 
 ## Installation
 

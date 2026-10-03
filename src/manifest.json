@@ -1,16 +1,16 @@
 {
   "id": "what-to-watch",
   "name": "What to Watch",
-  "version": "1.1.0",
-  "manifestURI": "https://raw.githubusercontent.com/Schirke/seanime-what-to-watch/main/src/manifest.json",
+  "version": "1.1.1",
+  "manifestURI": "https://raw.githubusercontent.com/Schirke-Seanime/seanime-what-to-watch/main/src/manifest.json",
   "language": "typescript",
   "type": "plugin",
   "description": "Pick a mood and get shows from your list to watch next: almost done, keep watching, start something new and movie night.",
   "author": "Schirke",
-  "icon": "https://raw.githubusercontent.com/Schirke/seanime-what-to-watch/main/src/icon.png",
-  "website": "https://github.com/Schirke/seanime-what-to-watch",
+  "icon": "https://raw.githubusercontent.com/Schirke-Seanime/seanime-what-to-watch/main/src/icon.png",
+  "website": "https://github.com/Schirke-Seanime/seanime-what-to-watch",
   "lang": "en",
-  "payloadURI": "https://raw.githubusercontent.com/Schirke/seanime-what-to-watch/main/src/WhatToWatch.ts",
+  "payloadURI": "https://raw.githubusercontent.com/Schirke-Seanime/seanime-what-to-watch/main/src/WhatToWatch.ts",
   "plugin": {
     "version": "1",
     "permissions": {
